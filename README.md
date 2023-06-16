@@ -89,9 +89,7 @@ We now create our permutation test to see if the model performs better or worse 
 - Null: The final model is fair. Its F-1 score for both landlocked states and not landlocked states are roughly the same and any difference is due to chance.
 - Alternative: The final model is unfair. The F-1 score for landlocked states and not landlocked states are not equal.
 
-We will repeatedly shuffle the `landlocked` column, split the data into landlocked and not landlocked, and conduct a permutation test based on the absolute difference between the F-1 scores for each group. We will use a p-value of 0.05. The following figure shows the distribution of absolute differences between F-1 scores for the landlocked and not landlocked  categories
-
-<iframe src = "abs diff.html" width = 800 height = 600 frameBorder = 0></iframe>
+We will repeatedly shuffle the `landlocked` column, split the data into landlocked and not landlocked, and conduct a permutation test based on the absolute difference between the F-1 scores for each group. We will use a p-value of 0.05. The following figure shows the distribution of absolute differences between F-1 scores for the landlocked and not landlocked categories
 
 The p-value calculated, which is the probability of a statistic as or more extreme as my test statistic occurring in the wild, is 0.508. Therefore, we fail to reject our null hypothesis that the final model is fair. It is most likely, based on the data and tests, that our final model does not find a distinction when grouping based off the landlocked status of the state in which the power outage occurred.
 
