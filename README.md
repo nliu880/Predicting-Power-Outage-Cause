@@ -26,46 +26,47 @@ We will begin this by performing the same data cleaning steps as previous. I hav
 
 ## Baseline Model
 
-We will start by splitting the data into training and testing sets. We will then create a basic `DecisionTreeClassifier()` to classify the cause of the outage based on `climate region` and `climate category`. The `climate region` refers to regions designated by National Centers for Environmental Information (Northeast, South, West, etc). The `climate category` column is based on the ONI El Niño/La Niña index that represents how warm/cold a season is, and is the index based off the total year. 
+We will start by splitting the data into training and testing sets. We will then create a basic `DecisionTreeClassifier()`, which makes recursive splitting decisions to classify something to a final node, to classify the cause of the outage based on `climate region` and `climate category`. The `climate region` refers to regions designated by National Centers for Environmental Information (Northeast, South, West, etc). The `climate category` column is based on the ONI El Niño/La Niña index that represents how warm/cold a season is, and is the index based off the total year. 
 
 Extreme `climate category` is more likely to correlate with extreme weather and `climate region` can also be an indicator of weather habits that affect outages. Additionally, public officials may deliberately choose to shut off the power grid during certain weather patterns.
 
 The features used in this initial model are `climate category` and `climate region`, both of which are categorical and nominal. Both are encoded using `OneHotEncoder()` from `sklearn`. The decision tree will have a max_depth of 3.
 
-After creating a `Pipeline` object to help transform the data, we fit the model and calculate the F-1 score for both the training and testing data.
+After creating an `sklearn` `Pipeline` object to help transform the data, we fit the model and calculate the F-1 score for both the training and testing data.
 
 - For the training data, the F-1 score is 0.49595961205501965
 - For the testing data, the F-1 score is 0.4178350638155524
 
 This model seems to fall on the slightly worse side. F-1 score is a combination of recall and precision, and ranges from 0 to 1 and can be described as the ratio of true positives to the sum of true positives, false positives, and false negatives. The F-1 score for both training and testing data don't make it to the halfway mark of 0.5. Clearly the model can be improved. 
 
-### NMAR Analysis
+## Final Model
 
-In this portion, I looked back at the original, full, dataframe to analyze the missingness of the column `time of restoration` to see if it would qualify as NMAR, where the missingness of the value would depend on the value itself. I believe this column to be NMAR as the value itself (if it were not missing) could explain the missingness of the data. For example, several of the observations with `time of restoration` missing have `intentional attack` as the cause of the outage. If the attack failed, there would be no time of restoration for power. Thus I conclude that the missing values in `time of restoration` are NMAR. <br>
+Now, we want to create a better model. In addition to the two features looked at previously, we will also look at `us state`, `anomaly level`, and `outage duration (min)`. We will perform a quantile encoding for `outage duration (min)` and map `us state` to a numerical value using a custom function.
 
-I can extend that argument and make the conclusion that the missing values of `outage duration` are then MAR (missing at random). If you examine the dataframe, you notice that only the rows where `time of restoration` (and similarly, `date of restoration`) are missing are the values for `outage duration` also missing. This also makes sense logically, as if there is no outage end time, there is no outage duration time. Thus if `time of restoration` is NMAR, then `outage duration` is MAR.
+- `us state` contains information about what state an outage occurred in. One potential cause for power outages is severe weather. We may associate certain states with severe weather. Texas, for example, has within recent memory made news headlines both extreme cold and extreme heat. 
+- `anomaly level` contains information about the ONI index, a [3 month average temperature difference from the average temperature](https://www.climate.gov/news-features/understanding-climate/climate-variability-oceanic-ni\%C3\%B1o-index). This value is indicative of global temperature changes and can be correlated with weather, which in turn can cause power outages.
+- `outage duration (min)` describes how long the power outage was, in minutes. I had found in my previous project that power outages caused by severe weather, hurricanes in particular, were correlated with longer than average power outages. This fact could affect our classification. 
 
-### Missingness Dependency
+We will use `DecisionTreeClassifier()` again to make our predictions. Additionally, we will also search for the best hyperparameters to use in this model. We will tune the maximum depth of the tree, the minimum number of samples needed to split an internal node, and the criterion for splitting (the function by which the quality of the split is judged). 
 
-In this section, I examine the missingness dependency of the column `customers affected`. 
+- Too deep of a tree may result in overfitting; not deep enough does not allow for detailed enough classification
+- The larger the minimum number of samples needed to split an internal node, the more likely the classifier will generalize
+- Different criteria for splitting will lead to different decisions and classifications; the ones chosen are the accepted criteria as given in the documentation 
 
-First, I examine the distribution of the `population` column when `customers affected` is missing or not missing. 
+We will find the best hyperparameters by using `GridSearchCV'. Again, we chain together all column transformations and the `DecisionTreeClassifier()` object using an `sklearn` `Pipeline`. We combine these within `GridSearchCV' and use k-fold cross validation, with k = 8, to find the best hyperparameters. We find the following:
 
-<iframe src = "assets/pop cust dist.html" width=800 height=600 frameBorder=0></iframe>
+- The best criterion is entropy
+- The best maximum tree depth is 5
+- The best minimum number of samples needed to split a node is 2
 
-I set up a permutation test to determine if `customers affected` being missing affects the `population` distribution. I take my null hypothesis to be that the distribution of `population` does not depend on `customers affected` and my alternative hypothesis to be that it is. I use a significance level of 0.05. <br>
+After finding these parameters to use in our final model, we fit our final model on the same training and testing data as we used in our baseline model. We find the F-1 scores to be:
 
-After running the permutation test and using the difference in means for my test statistic, I plot my results in the following histogram. 
+- For the training data, the F-1 score is 0.7025791136434512
+- For the testing data, the F-1 score is 0.6015811365023541
 
-<iframe src = "assets/pop cust diff.html" width=800 height=600 frameBorder=0></iframe>
+While this is still not perfect, this is a much better improvement on our previous baseline model. The inclusion of `us state`, `anomaly level`, and `outage duration (min)` has helped us classify power outages to their causes much better.  
 
-I calculated my p-value to be 0.174, which means I fail to reject my null hypothesis and that the distribution of `population` is not dependent on the missingness of `customers affected`, making the `customers affected` column MCAR in reference to the `population` column. <br>
-
-I do a similar setup and test for the relationship between the `demand loss mw` column (peak consumer demand lost in Megawatts) and `customers affected` column using the total variation distance, only this time I find my p-value to be 0. I can then safely reject my null hypothesis for this permutation test (that the distribution of `demand loss mw` was not dependent on the missingness of `customers affected`) in favor of the alternative, that they are dependent. <br>
-
-With the missingness analyzed, I move onto hypothesis testing for my question. Do hurricanes cause longer power outages in comparison to other outages caused by severe weather?
-
-## Hypothesis Testing
+## Fairness Analysis
 
 I first filter my dataframe to only outages caused by `severe weather`, then drop the rows with missing `outage duration` values. There are only 19 missing `outage duration` values, thus dropping them are unlikely to affect the distribution. I then set up my null and alternative hypothesis. <br>
 
