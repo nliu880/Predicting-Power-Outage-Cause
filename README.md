@@ -24,10 +24,20 @@ We will begin this by performing the same data cleaning steps as previous. I hav
 | Minnesota  | MRO           | East North Central |             1.2 | warm               | severe weather     |                    1740 |              250 |               250000 |  5.48959e+06 | 2015-07-18 02:00:00 | 2015-07-19 07:00:00 | 1 days 05:00:00 |                   29    |
 
 
+## Baseline Model
 
-## Assessment of Missingness
+We will start by splitting the data into training and testing sets. We will then create a basic `DecisionTreeClassifier()` to classify the cause of the outage based on `climate region` and `climate category`. The `climate region` refers to regions designated by National Centers for Environmental Information (Northeast, South, West, etc). The `climate category` column is based on the ONI El Niño/La Niña index that represents how warm/cold a season is, and is the index based off the total year. 
 
-There are two parts to this section, one where I analyze whether a the missingness of a column is NMAR (not missing at random) and another where I determine the missingness dependency of a different column. 
+Extreme `climate category` is more likely to correlate with extreme weather and `climate region` can also be an indicator of weather habits that affect outages. Additionally, public officials may deliberately choose to shut off the power grid during certain weather patterns.
+
+The features used in this initial model are `climate category` and `climate region`, both of which are categorical and nominal. Both are encoded using `OneHotEncoder()` from `sklearn`. The decision tree will have a max_depth of 3.
+
+After creating a `Pipeline` object to help transform the data, we fit the model and calculate the F-1 score for both the training and testing data.
+
+- For the training data, the F-1 score is 0.49595961205501965
+- For the testing data, the F-1 score is 0.4178350638155524
+
+This model seems to fall on the slightly worse side. F-1 score is a combination of recall and precision, and ranges from 0 to 1 and can be described as the ratio of true positives to the sum of true positives, false positives, and false negatives. The F-1 score for both training and testing data don't make it to the halfway mark of 0.5. Clearly the model can be improved. 
 
 ### NMAR Analysis
 
