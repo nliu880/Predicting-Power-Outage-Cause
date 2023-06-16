@@ -68,13 +68,27 @@ While this is still not perfect, this is a much better improvement on our previo
 
 ## Fairness Analysis
 
-I first filter my dataframe to only outages caused by `severe weather`, then drop the rows with missing `outage duration` values. There are only 19 missing `outage duration` values, thus dropping them are unlikely to affect the distribution. I then set up my null and alternative hypothesis. <br>
+Now we see if the model performs better or worse for certain groups. We will split our data by state into landlocked states and not landlocked states. A quick search (or if a map if you are exceptionally good at geography) tells us that the not landlocked states are: Alaska, Hawai'i, Washington, Oregon, California, Texas, Louisiana, Alabama, Florida, Georgia, South Carolina, North Carolina, Virginia, Maryland, Delaware, New Jersey, Mississippi, New York, Connecticut, Rhode Island, Massachusetts, New Hampshire, and Maine. A few notes on this: 
 
-Null hypothesis: Hurricanes do not cause longer power outages in comparison to other power outages caused by severe weather. <br>
-Alternative hypothesis: Hurricanes do cause longer power outages in comparison to other power outages caused by severe weather. <br>
+- Rhode Island has somehow avoided any power outages (or its power outages avoided being included in this set), so we will not include it
+- Hawai'i is written as Hawaii in this dataset; we will use Hawaii
+- We will add a column that describes whether or not the region in which some power outage occurred was landlocked. A 1 will mean yes, the region is landlocked, and a 0 will represent the opposite
 
-I have a population (outages caused by severe storms) and a sample (outages caused by hurricanes). My hypothesis test will use the mean of the group (the average of the distribution) as my test statistic and use a p-value of 0.05.
+| us state   | nerc region   | climate region     |   anomaly level | climate category   | cause category     |   outage duration (min) |   demand loss mw |   customers affected |   population | start time          | restoration time    | total time      |   outage duration (hrs) |   landlocked |
+|:-----------|:--------------|:-------------------|----------------:|:-------------------|:-------------------|------------------------:|-----------------:|---------------------:|-------------:|:--------------------|:--------------------|:----------------|------------------------:|-------------:|
+| Minnesota  | MRO           | East North Central |            -0.3 | normal             | severe weather     |                    3060 |              nan |                70000 |  5.34812e+06 | 2011-07-01 17:00:00 | 2011-07-03 20:00:00 | 2 days 03:00:00 |                   51    |            1 |
+| Minnesota  | MRO           | East North Central |            -0.1 | normal             | intentional attack |                       1 |              nan |                  nan |  5.45712e+06 | 2014-05-11 18:38:00 | 2014-05-11 18:39:00 | 0 days 00:01:00 |                    0.02 |            1 |
+| Minnesota  | MRO           | East North Central |            -1.5 | cold               | severe weather     |                    3000 |              nan |                70000 |  5.3109e+06  | 2010-10-26 20:00:00 | 2010-10-28 22:00:00 | 2 days 02:00:00 |                   50    |            1 |
+| Minnesota  | MRO           | East North Central |            -0.1 | normal             | severe weather     |                    2550 |              nan |                68200 |  5.38044e+06 | 2012-06-19 04:30:00 | 2012-06-20 23:00:00 | 1 days 18:30:00 |                   42.5  |            1 |
+| Minnesota  | MRO           | East North Central |             1.2 | warm               | severe weather     |                    1740 |              250 |               250000 |  5.48959e+06 | 2015-07-18 02:00:00 | 2015-07-19 07:00:00 | 1 days 05:00:00 |                   29    |            1 |
 
-<iframe src = "assets/hypothesis.html" width=800 height=600 frameBorder=0></iframe>
+We now create our permutation test to see if the model performs better or worse for landlocked states. Our null and alternative hypotheses will be as follows:
 
-The p-value calculated, which is the probability of a statistic as or more extreme as my test statistic occurring in the wild, is 0.00001. This tells me I should reject my null hypothesis in favor of the alternative. I conclude that hurricanes do cause longer power outages in comparison to those caused by severe weather. <br>
+- Null: The final model is fair. Its F-1 score for both landlocked states and not landlocked states are roughly the same and any difference is due to chance.
+- Alternative: The final model is unfair. The F-1 score for landlocked states and not landlocked states are not equal.
+
+We will repeatedly shuffle the `landlocked` column, split the data into landlocked and not landlocked, and conduct a permutation test based on the absolute difference between the F-1 scores for each group. We will use a p-value of 0.05. The following figure shows the distribution of absolute differences between F-1 scores for the landlocked and not landlocked  categories
+
+<iframe src = "assets/abs diff.html" width=800 height=600 frameBorder=0></iframe>
+
+The p-value calculated, which is the probability of a statistic as or more extreme as my test statistic occurring in the wild, is 0.508. Therefore, we fail to reject our null hypothesis that the final model is fair. It is most likely, based on the data and tests, that our final model does not find a distinction when grouping based off the landlocked status of the state in which the power outage occurred.
